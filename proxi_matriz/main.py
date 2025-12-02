@@ -7,7 +7,7 @@ CORS(app)
 
 INVENTARIO_FILE = "inventarios_recibidos.json"
 JSON_AGENCIA = "inventario_render.json"
-NOMBRE_AGENCIA = "matriz"
+NOMBRE_AGENCIA = "impulsora"
 
 def cargar_inventario():
     if not os.path.exists(INVENTARIO_FILE):
@@ -51,4 +51,30 @@ def obtener_inventario():
 @app.route("/limpiar", methods=["POST"])
 def limpiar_inventario():
     guardar_inventario([])
-    return jsonify({"statu
+    return jsonify({"status": "inventario_limpiado"})
+
+@app.route("/actualizar-matriz", methods=["POST"])
+def actualizar_desde_matriz():
+    if not os.path.exists(JSON_AGENCIA):
+        return jsonify({"status": "no_encontrado"})
+
+    try:
+        with open(JSON_AGENCIA, "r", encoding="utf-8") as f:
+            inventario_real = json.load(f)
+    except:
+        return jsonify({"status": "error_lectura"})
+
+    inventario_final = [
+        {
+            "codigo": i.get("codigo", ""),
+            "descripcion": i.get("descripcion", ""),
+            "stock": i.get("stock", 0),
+            "agencia": NOMBRE_AGENCIA
+        } for i in inventario_real
+    ]
+
+    guardar_inventario(inventario_final)
+    return jsonify({"status": "actualizado"})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5005)
