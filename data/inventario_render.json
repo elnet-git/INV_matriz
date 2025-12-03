@@ -40,5 +40,11 @@
         "descripcion":"45",
         "stock":45,
         "agencia":"MATRIZ"
+    },
+    {
+        "codigo":"GHMN",
+        "descripcion":"GHM",
+        "stock":54,
+        "agencia":"MATRIZ"
     }
 ]
