@@ -23812,5 +23812,11 @@
         "descripcion":"fgh",
         "stock":4,
         "agencia":"MATRIZ"
+    },
+    {
+        "codigo":"FG",
+        "descripcion":"DFG",
+        "stock":5,
+        "agencia":"MATRIZ"
     }
 ]
