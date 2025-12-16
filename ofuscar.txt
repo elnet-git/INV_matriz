@@ -1,0 +1,27 @@
+✅ 1. Cython (la más segura)
+
+Convierte tu .py en código C compilado.
+Tu código ya no queda visible.
+
+▶️ Instalar
+pip install cython
+
+▶️ Crear archivo de compilación: setup.py
+from distutils.core import setup
+from Cython.Build import cythonize
+
+setup(
+    ext_modules = cythonize("matriz.py")
+)
+
+▶️ Compilar:
+python setup.py build_ext --inplace
+
+
+📌 Esto genera un archivo .pyd (equivalente a .dll) que ya está ofuscado.
+
+▶️ Luego crear .exe:
+pyinstaller --onefile --noconsole matriz.py
+
+
+➡ PyInstaller usará el .pyd compilado y tu código será ilegible.

@@ -1,4 +1,13 @@
-# mixquiahuala.py
+
+import threading
+import subprocess
+import pandas as pd
+import requests
+import schedule
+import json
+import tkinter as tk
+import threading
+import subprocess
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
 import threading
@@ -9,6 +18,10 @@ import os
 import subprocess
 import requests
 import sys
+import tkinter as tk
+from tkinter import ttk
+import ttkbootstrap as tb
+from ttkbootstrap.constants import *
 import time
 import json
 import schedule
@@ -28,12 +41,30 @@ import base64
 # RUTAS Y ARCHIVOS LOCALES
 # ===============================
 def resource_path(relative_path):
-    """Obtiene la ruta absoluta de recursos, compatible con PyInstaller"""
-    try:
+    """
+    Obtiene ruta absoluta compatible con:
+    - Ejecución normal
+    - PyInstaller (--onefile)
+    - Nuitka (--onefile)
+    """
+
+    import sys, os
+    from pathlib import Path
+
+    # 1. Nuitka onefile usa sys._MEIPASS
+    if hasattr(sys, "_MEIPASS"):
         base_path = Path(sys._MEIPASS)
-    except Exception:
+
+    # 2. PyInstaller onefile también usa sys._MEIPASS
+    elif getattr(sys, 'frozen', False):
+        base_path = Path(sys.executable).parent
+
+    # 3. Ejecución normal
+    else:
         base_path = Path(__file__).parent.resolve()
+
     return base_path / relative_path
+
 
 # Carpetas principales
 CARPETA_DATOS = resource_path("Archivos")
@@ -213,49 +244,30 @@ def generar_json_desde_excel():
 # ===============================
 # SUBIR A GITHUB (CLI + API)
 # ===============================
+import subprocess
+from pathlib import Path
+from datetime import datetime
+
 def subir_a_github():
     try:
         if not Path(REPO_DIR).exists():
             print(f"❌ Repo no encontrado: {REPO_DIR}")
             return
         os.chdir(REPO_DIR)
+        # Agregar JSON al repo
         subprocess.run(["git", "add", str(ARCHIVO_JSON)], check=True)
+        # Verificar cambios
         status = subprocess.run(["git", "diff", "--cached", "--quiet"])
         if status.returncode == 0:
             print(f"[{datetime.now()}] Sin cambios nuevos.")
             return
+        # Commit y push
         msg = f"Actualización inventario {datetime.now()}"
         subprocess.run(["git", "commit", "-m", msg], check=True)
         subprocess.run(["git", "push", "origin", BRANCH], check=True)
         print(f"[{datetime.now()}] ✔ Subido a GitHub.")
     except Exception as e:
         print(f"❌ Error subiendo a GitHub: {e}")
-
-def subir_json_a_github_api():
-    if not ARCHIVO_JSON.exists():
-        print(f"❌ No existe {ARCHIVO_JSON} para subir via API.")
-        return False
-    if not GITHUB_TOKEN_API:
-        print("❌ No se encontró GITHUB_TOKEN_API")
-        return False
-    with open(ARCHIVO_JSON, "r", encoding="utf-8") as f:
-        contenido_json = f.read()
-    url = f"https://api.github.com/repos/{GITHUB_REPO_API}/contents/{GITHUB_PATH_API}"
-    contenido_b64 = base64.b64encode(contenido_json.encode("utf-8")).decode("utf-8")
-    headers = {"Authorization": f"Bearer {GITHUB_TOKEN_API}", "Accept": "application/vnd.github+json"}
-    resp_get = requests.get(url + f"?ref={GITHUB_BRANCH}", headers=headers, timeout=10)
-    payload = {"message": f"Actualización inventario {datetime.now().isoformat()}", "content": contenido_b64, "branch": GITHUB_BRANCH}
-    if resp_get.status_code == 200:
-        sha = resp_get.json().get("sha")
-        if sha:
-            payload["sha"] = sha
-    resp_put = requests.put(url, headers=headers, json=payload, timeout=15)
-    if resp_put.status_code in (200, 201):
-        print(f"✅ JSON subido a GitHub via API. Status: {resp_put.status_code}")
-        return True
-    else:
-        print(f"❌ Error subiendo a GitHub via API. Status: {resp_put.status_code} - {resp_put.text}")
-        return False
 
 def tarea_post_update_en_hilo():
     try:
@@ -1196,29 +1208,50 @@ class Taller(ttk.Frame):
 # ==========================================================================
 #                    INTERFAZ TKINTER
 # ==========================================================================
-class AppUnificada(tk.Tk):
+class AppUnificada(tb.Window):
     def __init__(self):
-        super().__init__()
-        self.title("JQ MOTORS SISTEM - Matriz")
-        self.geometry("1300x800")
-        ttk.Label(self, text="🚀 JQ MOTORS MATRIZ",
-                  font=("Segoe UI", 16, "bold")).pack(pady=10)
-        # Notebook principal
-        self.notebook = ttk.Notebook(self)
-        self.notebook.pack(fill="both", expand=True)
-        # Cargar inventario global
+        super().__init__(
+            title="JQ MOTORS SISTEM - Matriz",
+            themename="cyborg",  # Tema moderno oscuro solicitado
+            size=(1300, 1000),
+            resizable=(True, True)
+        )
+
+        # ENCABEZADO MODERNO
+        header = tb.Label(
+            self,
+            text="🚀 JQ MOTORS MATRIZ",
+            font=("Segoe UI", 20, "bold"),
+            bootstyle="info"
+        )
+        header.pack(pady=15)
+
+        # NOTEBOOK MODERNO
+        self.notebook = tb.Notebook(self, bootstyle="primary")
+        self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Cargar inventario
         self.inventario_df = load_inventario_file()
-        # Crear pestañas reales
+
+        # Pestañas con diseño moderno
         self.tab_stock = Stock(self.notebook, controller=self)
         self.tab_ventas = Ventas(self.notebook, controller=self)
         self.tab_cotizacion = Cotizacion(self.notebook, controller=self, inventario_df=self.inventario_df)
         self.tab_taller = Taller(self.notebook, controller=self)
-        # Agregarlas al notebook
-        self.notebook.add(self.tab_stock, text="Stock")
-        self.notebook.add(self.tab_ventas, text="Ventas")
-        self.notebook.add(self.tab_cotizacion, text="Cotización")
-        self.notebook.add(self.tab_taller, text="Taller")
-        print("Tkinter iniciado correctamente.")
+
+        # Agregar pestañas
+        self.notebook.add(self.tab_stock, text="📦 Stock")
+        self.notebook.add(self.tab_ventas, text="💵 Ventas")
+        self.notebook.add(self.tab_cotizacion, text="🧾 Cotización")
+        self.notebook.add(self.tab_taller, text="🛠 Taller")
+
+        print("UI moderna (darkly) cargada correctamente.")
+
+# ===============================
+# FLASK API
+# ===============================
+app_flask = Flask(__name__)
+CORS(app_flask)  # permite acceso desde HTML externo
 
 # ==========================================================================  
 #                    SERVIDOR FLASK (API REST)  
@@ -1258,6 +1291,15 @@ if __name__ == "__main__":
             schedule.run_pending()
             time.sleep(5)
     threading.Thread(target=run_schedule, daemon=True).start()
+# ===============================
+# INICIAR FLASK EN SEGUNDO PLANO
+# ===============================
+    flask_thread = threading.Thread(
+        target=iniciar_flask,
+        daemon=True
+    )
+    flask_thread.start()
+
 
     # Corre la app Tkinter
     app = AppUnificada()
